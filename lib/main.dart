@@ -26,14 +26,36 @@ class ToDoApp extends StatefulWidget {
 class _ToDoAppState extends State<ToDoApp> {
   final TextEditingController _taskController = TextEditingController();
   final List<Map<String, dynamic>> _tasks = [];
+  DateTime? _selectedDueDate;
+  List<String> _categories = ['Work', 'Personal', 'Shopping', 'Others'];
+  String? _selectedCategory; // To store the selected category for a new task.
 
 // Method for adding the task
   void _addTask() {
-    if (_taskController.text.isNotEmpty) {
-      setState(() {
-        _tasks.add({'task': _taskController.text, 'isCompleted': false});
-        _taskController.clear();
-      });
+    if (_taskController.text.isNotEmpty && _selectedDueDate != null) {
+      setState(
+        () {
+          _tasks.add(
+            {
+              'task': _taskController.text,
+              'isCompleted': false,
+              'timestamp': DateTime.now().toString(),
+              'dueDate': _selectedDueDate.toString(),
+              'category': _selectedCategory,
+            },
+          );
+          _taskController.clear();
+          _selectedDueDate = null;
+          _selectedCategory = null;
+        },
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text("Please select the task and due Date"),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -54,6 +76,30 @@ class _ToDoAppState extends State<ToDoApp> {
     );
   }
 
+  Future<void> _pickDueDate() async {
+    DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2100),
+    );
+    if (pickedDate != null) {
+      setState(() {
+        _selectedDueDate = pickedDate;
+      });
+    }
+  }
+
+  String _formatDate(String dateString) {
+    DateTime date = DateTime.parse(dateString);
+    return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+  }
+
+  String _formatTimeStamp(String timestamp) {
+    DateTime dateTime = DateTime.parse(timestamp);
+    return "Date: ${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}, Time: ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -68,6 +114,29 @@ class _ToDoAppState extends State<ToDoApp> {
             Row(
               children: [
                 Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedCategory,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedCategory = value;
+                      });
+                    },
+                    items: _categories.map((category) {
+                      return DropdownMenuItem<String>(
+                        value: category,
+                        child: Text(category),
+                      );
+                    }).toList(),
+                    decoration: const InputDecoration(
+                      hintText: 'Select Category',
+                      border: OutlineInputBorder(),
+                      fillColor: Colors.white,
+                      filled: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10.0),
+                Expanded(
                   child: TextField(
                     controller: _taskController,
                     decoration: const InputDecoration(
@@ -80,32 +149,51 @@ class _ToDoAppState extends State<ToDoApp> {
                 ),
                 const SizedBox(width: 10.0),
                 ElevatedButton(
-                    onPressed: _addTask,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                    ),
-                    child: const Text(
-                      "Add",
-                      style: TextStyle(color: Colors.black),
-                    ))
+                  onPressed: _pickDueDate,
+                  style:
+                      ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                  child: const Text(
+                    'Pick Due Date',
+                    style: TextStyle(color: Colors.black),
+                  ),
+                ),
+                const SizedBox(width: 10.0),
+                ElevatedButton(
+                  onPressed: _addTask,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal,
+                  ),
+                  child: const Text(
+                    "Add",
+                    style: TextStyle(color: Colors.black),
+                  ),
+                ),
               ],
             ),
+            if (_selectedDueDate != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Text(
+                    "Selected Due Date: ${_formatDate(_selectedDueDate.toString())}"),
+              ),
             Expanded(
               child: _tasks.isEmpty
                   ? const Center(
                       child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.inbox, size: 100, color: Colors.grey),
-                        SizedBox(
-                          height: 20.0,
-                        ),
-                        Text(
-                          "No Task Yet",
-                          style: TextStyle(fontSize: 20.0, color: Colors.grey),
-                        ),
-                      ],
-                    ))
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.inbox, size: 100, color: Colors.grey),
+                          SizedBox(
+                            height: 20.0,
+                          ),
+                          Text(
+                            "No Task Yet",
+                            style:
+                                TextStyle(fontSize: 20.0, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    )
                   : ListView.builder(
                       itemCount: _tasks.length,
                       itemBuilder: (context, index) {
@@ -143,12 +231,29 @@ class _ToDoAppState extends State<ToDoApp> {
                                     : Colors.black,
                               ),
                             ),
-                            subtitle: Text(
-                              "Added on: ${_tasks[index]['timestamp']}",
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Added on: ${_formatTimeStamp(_tasks[index]['timestamp'])}",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                Text(
+                                  "Due Date ${_formatDate(_tasks[index]['dueDate'])}",
+                                  style: const TextStyle(
+                                    fontSize: 12.0,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                Text(
+                                  "Category: ${_tasks[index]['category']}",
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Colors.blue),
+                                ),
+                              ],
                             ),
                             trailing: IconButton(
                               icon: const Icon(
